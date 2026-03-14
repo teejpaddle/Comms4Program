@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>WALKIE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+
+:root {
+  --bg: #0d0f0e;
+  --surface: #141714;
+  --surface2: #1a1f1a;
+  --border: #2a2f2a;
+  --green: #39ff84;
+  --green-dim: #1a4a2e;
+  --green-glow: rgba(57,255,132,0.15);
+  --red: #ff4444;
+  --amber: #ffb347;
+  --text: #c8d5c8;
+  --text-dim: #5a6b5a;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-ui: 'Barlow Condensed', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); overflow: hidden; position: fixed; width: 100%; }
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+.screen { display: none; flex-direction: column; height: 100%; }
+.screen.active { display: flex; }
+
+/* ── SETUP ── */
+#setup {
+  align-items: center; justify-content: center; padding: 40px 32px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(57,255,132,0.06) 0%, transparent 70%), var(--bg);
+}
+.logo { font-family: var(--font-ui); font-weight: 900; font-size: 72px; letter-spacing: 16px; color: var(--green); text-shadow: 0 0 40px rgba(57,255,132,0.5), 0 0 80px rgba(57,255,132,0.2); line-height: 1; margin-bottom: 4px; }
+.logo-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 6px; color: var(--text-dim); margin-bottom: 48px; }
+.field-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; align-self: flex-start; width: 100%; max-width: 320px; }
+.field-input {
+  width: 100%; max-width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  padding: 14px 16px; font-family: var(--font-ui); font-size: 20px; font-weight: 600; color: var(--text);
+  letter-spacing: 2px; text-transform: uppercase; outline: none; transition: border-color 0.2s, box-shadow 0.2s; margin-bottom: 16px;
+}
+.field-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px var(--green-glow); }
+.field-input::placeholder { color: var(--text-dim); font-weight: 300; }
+.field-select {
+  width: 100%; max-width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  padding: 14px 16px; font-family: var(--font-ui); font-size: 18px; font-weight: 600; color: var(--text);
+  letter-spacing: 1px; outline: none; transition: border-color 0.2s; margin-bottom: 32px; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='%235a6b5a'%3E%3Cpath d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center;
+}
+.field-select:focus { border-color: var(--green); }
+.field-select option { background: #1a1f1a; }
+.btn-join {
+  width: 100%; max-width: 320px; padding: 18px; background: var(--green); border: none; border-radius: 4px;
+  font-family: var(--font-ui); font-weight: 900; font-size: 18px; letter-spacing: 6px; text-transform: uppercase;
+  color: #0a0f0a; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; box-shadow: 0 0 30px rgba(57,255,132,0.3);
+}
+.btn-join:active { transform: scale(0.97); }
+
+/* ── MAIN ── */
+#main { background: var(--bg); }
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.header-logo { font-family: var(--font-ui); font-weight: 900; font-size: 22px; letter-spacing: 8px; color: var(--green); text-shadow: 0 0 20px rgba(57,255,132,0.4); }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.status-pill { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; color: var(--text-dim); }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); transition: all 0.3s; }
+.status-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pdot 2s infinite; }
+@keyframes pdot { 0%,100%{opacity:1}50%{opacity:0.5} }
+.icon-btn {
+  background: none; border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px;
+  color: var(--text-dim); cursor: pointer; font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px;
+  transition: border-color 0.2s, color 0.2s;
+}
+.icon-btn:hover, .icon-btn:active { border-color: var(--green); color: var(--green); }
+
+.user-badge {
+  padding: 8px 16px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 2px; color: var(--text-dim); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+}
+.user-badge .uname { color: var(--green); }
+.role-tag { padding: 2px 8px; border-radius: 2px; font-size: 10px; letter-spacing: 2px; border: 1px solid currentColor; }
+
+/* talkers strip */
+.talkers-strip {
+  flex-shrink: 0; min-height: 38px; padding: 6px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-family: var(--font-mono); font-size: 10px; overflow-y: auto; max-height: 64px;
+  background: rgba(57,255,132,0.02);
+}
+.talker-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 2px;
+  border: 1px solid var(--green); color: var(--green); animation: chipin 0.15s ease;
+}
+@keyframes chipin { from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)} }
+.chip-wave { display: inline-flex; gap: 1px; align-items: center; }
+.chip-wave span { width: 2px; background: currentColor; border-radius: 1px; animation: wv 0.5s ease-in-out infinite alternate; }
+.chip-wave span:nth-child(1){height:4px;animation-delay:0s}
+.chip-wave span:nth-child(2){height:8px;animation-delay:0.15s}
+.chip-wave span:nth-child(3){height:5px;animation-delay:0.3s}
+@keyframes wv { from{transform:scaleY(0.3)}to{transform:scaleY(1)} }
+.strip-empty { color: var(--text-dim); letter-spacing: 2px; }
+
+/* feed */
+.feed { flex: 1; overflow-y: auto; padding: 6px 0; display: flex; flex-direction: column; gap: 1px; -webkit-overflow-scrolling: touch; }
+.feed::-webkit-scrollbar { width: 3px; }
+.feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.entry { padding: 7px 16px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; border-left: 2px solid transparent; }
+.entry.sys { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; padding: 4px 16px; }
+.entry.txon { border-left-color: var(--green); background: var(--green-glow); }
+.entry.txoff { border-left-color: var(--border); color: var(--text-dim); }
+.entry-name { letter-spacing: 2px; text-transform: uppercase; font-weight: bold; }
+.entry-meta { font-size: 10px; color: var(--text-dim); margin-left: 8px; }
+
+/* users bar */
+.users-bar {
+  padding: 7px 16px; border-top: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; color: var(--text-dim);
+  flex-shrink: 0; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch;
+}
+.uchip { display: inline-block; margin-right: 14px; }
+.uchip::before { content: '● '; font-size: 8px; }
+
+/* PTT */
+.ptt-area {
+  flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+  padding: 18px 20px 38px; gap: 12px;
+  background: linear-gradient(to top, rgba(57,255,132,0.03) 0%, transparent 100%), var(--bg);
+}
+.ptt-btn {
+  width: 148px; height: 148px; border-radius: 50%; border: 2px solid var(--green);
+  background: var(--surface); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  position: relative; transition: all 0.1s ease;
+  box-shadow: 0 0 0 8px rgba(57,255,132,0.05), 0 0 40px rgba(57,255,132,0.1), inset 0 1px 0 rgba(255,255,255,0.05);
+  -webkit-user-select: none; user-select: none; touch-action: none;
+}
+.ptt-btn::before { content:''; position:absolute; inset:-8px; border-radius:50%; border:1px solid rgba(57,255,132,0.12); }
+.ptt-btn::after  { content:''; position:absolute; inset:-16px; border-radius:50%; border:1px solid rgba(57,255,132,0.05); }
+.ptt-btn.pressing {
+  background: var(--green-dim); transform: scale(0.96);
+  box-shadow: 0 0 0 8px rgba(57,255,132,0.12), 0 0 60px rgba(57,255,132,0.5), inset 0 0 30px rgba(57,255,132,0.1);
+}
+.ptt-icon { font-size: 38px; line-height: 1; }
+.ptt-label { font-family: var(--font-ui); font-weight: 700; font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--green); }
+.ptt-hint { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; color: var(--text-dim); text-align: center; }
+
+/* ── PANEL ── */
+.panel-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; backdrop-filter: blur(2px); }
+.panel-overlay.open { display: block; }
+.panel {
+  position: absolute; bottom: 0; left: 0; right: 0; background: var(--surface);
+  border-top: 1px solid var(--border); border-radius: 16px 16px 0 0;
+  max-height: 82vh; display: flex; flex-direction: column; animation: slideup 0.3s ease;
+}
+@keyframes slideup { from{transform:translateY(100%)}to{transform:translateY(0)} }
+.panel-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; flex-shrink: 0; }
+.panel-header { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.panel-title { font-family: var(--font-ui); font-weight: 700; font-size: 16px; letter-spacing: 4px; text-transform: uppercase; }
+.panel-close { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+.panel-body { overflow-y: auto; padding: 16px 20px 32px; flex: 1; -webkit-overflow-scrolling: touch; }
+
+.section-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 12px; }
+
+/* user rows */
+.user-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 12px;
+}
+.user-row:last-child { border-bottom: none; }
+.ur-name { color: var(--text); letter-spacing: 1px; text-transform: uppercase; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ur-role { font-size: 10px; letter-spacing: 1px; padding: 2px 6px; border-radius: 2px; border: 1px solid currentColor; flex-shrink: 0; }
+.btn-kick {
+  background: none; border: 1px solid var(--red); color: var(--red); border-radius: 3px;
+  padding: 4px 10px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s;
+}
+.btn-kick:active { background: rgba(255,68,68,0.15); }
+
+/* role cards */
+.roles-grid { display: flex; flex-direction: column; gap: 10px; }
+.role-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+.role-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.role-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.role-name { font-family: var(--font-ui); font-weight: 700; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; }
+.role-you { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-left: auto; }
+.role-info { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); letter-spacing: 1px; line-height: 1.7; }
+.role-info strong { color: var(--text); }
+
+/* toast */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--surface); border: 1px solid var(--border); padding: 10px 20px; border-radius: 4px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px; color: var(--text-dim);
+  transition: transform 0.3s ease; z-index: 1000; white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+@keyframes shake { 0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)} }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div class="screen active" id="setup">
+  <div class="logo">WALKIE</div>
+  <div class="logo-sub">push-to-talk · multi-channel</div>
+  <div class="field-label">your callsign</div>
+  <input class="field-input" id="nameInput" type="text" maxlength="16" placeholder="enter name"
+    autocomplete="off" autocorrect="off" spellcheck="false">
+  <div class="field-label">your role</div>
+  <select class="field-select" id="roleInput">
+    <option value="director">Director</option>
+    <option value="vfx_lead">VFX Lead</option>
+    <option value="stage_lead">Lead Stage Hand</option>
+    <option value="stage_hand">Stage Hand</option>
+    <option value="crew">General Crew</option>
+  </select>
+  <button class="btn-join" id="joinBtn">JOIN CHANNEL</button>
+</div>
+
+<!-- MAIN -->
+<div class="screen" id="main">
+  <div class="header">
+    <div class="header-logo">WALKIE</div>
+    <div class="header-right">
+      <button class="icon-btn" id="rolesBtn">ROLES</button>
+      <button class="icon-btn" id="usersBtn">USERS</button>
+      <div class="status-pill">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="user-badge">
+    <span>CALLSIGN: <span class="uname" id="displayName">—</span></span>
+    <span class="role-tag" id="displayRole">—</span>
+  </div>
+
+  <div class="talkers-strip" id="talkersStrip">
+    <span class="strip-empty">channel clear</span>
+  </div>
+
+  <div class="feed" id="feed"></div>
+
+  <div class="users-bar" id="usersBar">no users online</div>
+
+  <div class="ptt-area">
+    <button class="ptt-btn" id="pttBtn">
+      <div class="ptt-icon">🎙</div>
+      <div class="ptt-label">TALK</div>
+    </button>
+    <div class="ptt-hint" id="pttHint">hold to transmit</div>
+  </div>
+</div>
+
+<!-- USERS PANEL -->
+<div class="panel-overlay" id="usersOverlay">
+  <div class="panel">
+    <div class="panel-handle"></div>
+    <div class="panel-header">
+      <div class="panel-title">Online Users</div>
+      <button class="panel-close" id="usersClose">✕</button>
+    </div>
+    <div class="panel-body" id="usersPanel"></div>
+  </div>
+</div>
+
+<!-- ROLES PANEL -->
+<div class="panel-overlay" id="rolesOverlay">
+  <div class="panel">
+    <div class="panel-handle"></div>
+    <div class="panel-header">
+      <div class="panel-title">Comm Routing</div>
+      <button class="panel-close" id="rolesClose">✕</button>
+    </div>
+    <div class="panel-body" id="rolesPanel"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getDatabase, ref, set, push, onValue, onDisconnect,
+  serverTimestamp, remove
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ── FIREBASE CONFIG ──────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyAdMvf8MgSB7QvAhOWKtqfgO38E1iSywec",
+  authDomain: "walkietalkieapp-393bb.firebaseapp.com",
+  databaseURL: "https://walkietalkieapp-393bb-default-rtdb.firebaseio.com",
+  projectId: "walkietalkieapp-393bb",
+  storageBucket: "walkietalkieapp-393bb.firebasestorage.app",
+  messagingSenderId: "221462525934",
+  appId: "1:221462525934:web:730cc3d678b1ded92cc0ff"
+};
+
+// ── ROLE ROUTING TABLE ───────────────────────────────────
+// canHear: which roles' transmissions this role receives
+const ROLES = {
+  director:   { label: 'Director',        color: '#39ff84', canHear: ['director','vfx_lead','stage_lead','stage_hand','crew'] },
+  vfx_lead:   { label: 'VFX Lead',        color: '#4fc3f7', canHear: ['director','vfx_lead'] },
+  stage_lead: { label: 'Lead Stage Hand', color: '#ffb347', canHear: ['director','stage_lead','stage_hand'] },
+  stage_hand: { label: 'Stage Hand',      color: '#ce93d8', canHear: ['stage_lead','stage_hand'] },
+  crew:       { label: 'General Crew',    color: '#aaaaaa', canHear: ['director','crew'] },
+};
+
+// ── STATE ────────────────────────────────────────────────
+const CHANNEL = 'ch1';
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' }
+];
+
+let db;
+let myId = '', myName = '', myRole = '';
+let isTalking = false;
+let mediaStream = null;
+let peers = {};        // uid → { pc, senders:[], audio }
+let onlineUsers = {};  // uid → { name, role }
+let activeTalkers = {};
+
+// ── DOM ──────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+// ── SETUP SCREEN ─────────────────────────────────────────
+const savedName = localStorage.getItem('walkie_name');
+const savedRole = localStorage.getItem('walkie_role');
+if (savedName) $('nameInput').value = savedName;
+if (savedRole) $('roleInput').value = savedRole;
+
+$('joinBtn').addEventListener('click', join);
+$('nameInput').addEventListener('keydown', e => e.key === 'Enter' && join());
+
+function join() {
+  const n = $('nameInput').value.trim().toUpperCase();
+  if (!n) {
+    $('nameInput').style.animation = 'none';
+    $('nameInput').offsetHeight;
+    $('nameInput').style.animation = 'shake 0.3s ease';
+    return;
+  }
+  myName = n;
+  myRole = $('roleInput').value;
+  localStorage.setItem('walkie_name', n);
+  localStorage.setItem('walkie_role', myRole);
+  myId = 'u' + Math.random().toString(36).slice(2,8) + Date.now().toString(36);
+
+  $('setup').classList.remove('active');
+  $('main').classList.add('active');
+  $('displayName').textContent = myName;
+  $('displayRole').textContent = ROLES[myRole].label;
+  $('displayRole').style.color = ROLES[myRole].color;
+  $('displayRole').style.borderColor = ROLES[myRole].color;
+
+  initApp();
+}
+
+// ── INIT ─────────────────────────────────────────────────
+function initApp() {
+  const app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+
+  setupPresence();
+  listenPresence();
+  listenSignals();
+  listenTalkers();
+
+  $('statusDot').className = 'status-dot online';
+  $('statusText').textContent = 'live';
+  addLog('sys', `joined as ${myName} · ${ROLES[myRole].label}`);
+}
+
+// ── PRESENCE ─────────────────────────────────────────────
+function setupPresence() {
+  const myRef = ref(db, `${CHANNEL}/users/${myId}`);
+  set(myRef, { name: myName, role: myRole, ts: serverTimestamp() });
+  onDisconnect(myRef).remove();
+  onDisconnect(ref(db, `${CHANNEL}/signals/${myId}`)).remove();
+  onDisconnect(ref(db, `${CHANNEL}/talking/${myId}`)).remove();
+}
+
+function listenPresence() {
+  onValue(ref(db, `${CHANNEL}/users`), snap => {
+    const prev = { ...onlineUsers };
+    onlineUsers = snap.val() || {};
+
+    for (const [uid, u] of Object.entries(onlineUsers)) {
+      if (uid === myId) continue;
+      if (!prev[uid]) {
+        addLog('sys', `${u.name} joined`);
+        // Pre-establish connection immediately — eliminates first-press delay
+        if (myId < uid) createOffer(uid);
+      }
+    }
+    for (const uid of Object.keys(prev)) {
+      if (!onlineUsers[uid] && uid !== myId) {
+        addLog('sys', `${prev[uid].name} left`);
+        closePeer(uid);
+        delete activeTalkers[uid];
+        remove(ref(db, `${CHANNEL}/talking/${uid}`));
+        renderTalkers();
+      }
+    }
+    renderUsersBar();
+  });
+}
+
+// ── WEBRTC ───────────────────────────────────────────────
+// KEY LATENCY FIX:
+// Connections are established when users JOIN, not when PTT is pressed.
+// PTT just flips track.enabled = true/false — zero renegotiation, near-instant.
+
+function makePeer(uid) {
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+  pc.onicecandidate = e => {
+    if (!e.candidate) return;
+    push(ref(db, `${CHANNEL}/signals/${uid}`), {
+      type: 'candidate', from: myId, candidate: e.candidate.toJSON()
+    });
+  };
+
+  pc.ontrack = e => {
+    // Receive audio from this peer
+    // Apply routing: only play if my role can hear their role
+    const theirRole = onlineUsers[uid]?.role;
+    if (theirRole && !canHear(theirRole)) return; // routing gate
+
+    const audio = new Audio();
+    audio.srcObject = e.streams[0];
+    audio.autoplay = true;
+    audio.play().catch(() => {});
+    peers[uid] = peers[uid] || {};
+    peers[uid].audio = audio;
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      closePeer(uid);
+      // Retry after a short delay
+      setTimeout(() => {
+        if (onlineUsers[uid] && myId < uid) createOffer(uid);
+      }, 2000);
+    }
+  };
+
+  peers[uid] = peers[uid] || {};
+  peers[uid].pc = pc;
+  return pc;
+}
+
+async function getStream() {
+  if (mediaStream) return mediaStream;
+  mediaStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000, channelCount: 1 },
+    video: false
+  });
+  return mediaStream;
+}
+
+async function createOffer(uid) {
+  if (peers[uid]?.pc) return; // already exists
+  const pc = makePeer(uid);
+
+  // Add muted track now — unmute later on PTT press
+  const stream = await getStream();
+  const senders = [];
+  stream.getTracks().forEach(t => {
+    t.enabled = false; // START MUTED
+    senders.push(pc.addTrack(t, stream));
+  });
+  peers[uid].senders = senders;
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  push(ref(db, `${CHANNEL}/signals/${uid}`), { type: 'offer', from: myId, sdp: offer.sdp });
+}
+
+function closePeer(uid) {
+  if (!peers[uid]) return;
+  try { peers[uid].pc?.close(); } catch(e) {}
+  delete peers[uid];
+}
+
+// ── SIGNAL HANDLING ──────────────────────────────────────
+function listenSignals() {
+  onValue(ref(db, `${CHANNEL}/signals/${myId}`), async snap => {
+    const sigs = snap.val();
+    if (!sigs) return;
+    for (const sig of Object.values(sigs)) {
+      if (sig.from === myId) continue;
+      await handleSignal(sig.from, sig);
+    }
+  });
+}
+
+async function handleSignal(fromId, sig) {
+  if (sig.type === 'offer') {
+    closePeer(fromId); // clean slate
+    const pc = makePeer(fromId);
+
+    const stream = await getStream();
+    const senders = [];
+    stream.getTracks().forEach(t => {
+      t.enabled = false; // muted until PTT
+      senders.push(pc.addTrack(t, stream));
+    });
+    peers[fromId].senders = senders;
+
+    await pc.setRemoteDescription({ type: 'offer', sdp: sig.sdp });
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    push(ref(db, `${CHANNEL}/signals/${fromId}`), { type: 'answer', from: myId, sdp: answer.sdp });
+
+  } else if (sig.type === 'answer') {
+    const peer = peers[fromId];
+    if (peer?.pc?.signalingState === 'have-local-offer') {
+      await peer.pc.setRemoteDescription({ type: 'answer', sdp: sig.sdp });
+    }
+
+  } else if (sig.type === 'candidate') {
+    const peer = peers[fromId];
+    if (peer?.pc) {
+      try { await peer.pc.addIceCandidate(sig.candidate); } catch(e) {}
+    }
+  }
+}
+
+// ── TALKER STATE ─────────────────────────────────────────
+function listenTalkers() {
+  onValue(ref(db, `${CHANNEL}/talking`), snap => {
+    activeTalkers = snap.val() || {};
+    renderTalkers();
+  });
+}
+
+// ── ROUTING ──────────────────────────────────────────────
+function canHear(talkerRole) {
+  return ROLES[myRole]?.canHear?.includes(talkerRole) ?? false;
+}
+
+// ── PTT ──────────────────────────────────────────────────
+const pttBtn = $('pttBtn');
+pttBtn.addEventListener('pointerdown', startTalk);
+pttBtn.addEventListener('pointerup',    stopTalk);
+pttBtn.addEventListener('pointerleave', stopTalk);
+pttBtn.addEventListener('pointercancel',stopTalk);
+pttBtn.addEventListener('contextmenu', e => e.preventDefault());
+
+async function startTalk(e) {
+  e.preventDefault();
+  if (isTalking) return;
+
+  // Acquire mic on very first press only
+  try { await getStream(); } catch(err) { showToast('mic denied'); return; }
+
+  // Ensure connections to all current peers
+  for (const uid of Object.keys(onlineUsers)) {
+    if (uid !== myId && !peers[uid]) {
+      if (myId < uid) await createOffer(uid);
+    }
+  }
+
+  isTalking = true;
+  pttBtn.classList.add('pressing');
+  $('pttHint').textContent = 'transmitting...';
+
+  // ← THE LOW LATENCY TRICK: just flip the track on, no negotiation needed
+  if (mediaStream) mediaStream.getAudioTracks().forEach(t => { t.enabled = true; });
+
+  set(ref(db, `${CHANNEL}/talking/${myId}`), { name: myName, role: myRole, ts: serverTimestamp() });
+  addLog('txon', myName + ' ▶ TX');
+}
+
+function stopTalk() {
+  if (!isTalking) return;
+  isTalking = false;
+  pttBtn.classList.remove('pressing');
+  $('pttHint').textContent = 'hold to transmit';
+
+  // Mute instantly
+  if (mediaStream) mediaStream.getAudioTracks().forEach(t => { t.enabled = false; });
+
+  remove(ref(db, `${CHANNEL}/talking/${myId}`));
+  addLog('txoff', myName + ' ■ over');
+}
+
+// ── RENDER ───────────────────────────────────────────────
+function renderTalkers() {
+  const list = Object.values(activeTalkers);
+  const strip = $('talkersStrip');
+  if (list.length === 0) {
+    strip.innerHTML = '<span class="strip-empty">channel clear</span>';
+    return;
+  }
+  strip.innerHTML = list.map(t => {
+    const c = ROLES[t.role]?.color || '#aaa';
+    const muted = (t.name !== myName) && !canHear(t.role) ? ' 🔇' : '';
+    return `<span class="talker-chip" style="border-color:${c};color:${c}">
+      ${t.name}${muted}
+      <span class="chip-wave"><span></span><span></span><span></span></span>
+    </span>`;
+  }).join('');
+}
+
+function renderUsersBar() {
+  const list = Object.values(onlineUsers);
+  const bar = $('usersBar');
+  if (list.length === 0) { bar.textContent = 'no users online'; return; }
+  bar.innerHTML = list.map(u => {
+    const c = ROLES[u.role]?.color || '#aaa';
+    return `<span class="uchip" style="color:${c}">${u.name}</span>`;
+  }).join('');
+}
+
+// ── FEED ─────────────────────────────────────────────────
+function addLog(type, msg) {
+  const el = document.createElement('div');
+  const feed = $('feed');
+  if (type === 'sys') {
+    el.className = 'entry sys';
+    el.textContent = '» ' + msg;
+  } else if (type === 'txon') {
+    el.className = 'entry txon';
+    el.innerHTML = `<span class="entry-name" style="color:var(--green)">${msg}</span>`;
+  } else {
+    el.className = 'entry txoff';
+    el.innerHTML = `<span class="entry-name">${msg}</span>
+      <span class="entry-meta">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>`;
+  }
+  feed.appendChild(el);
+  requestAnimationFrame(() => feed.scrollTop = feed.scrollHeight);
+}
+
+// ── USERS PANEL ──────────────────────────────────────────
+$('usersBtn').addEventListener('click', openUsersPanel);
+$('usersClose').addEventListener('click', () => $('usersOverlay').classList.remove('open'));
+$('usersOverlay').addEventListener('click', e => { if (e.target === $('usersOverlay')) $('usersOverlay').classList.remove('open'); });
+
+function openUsersPanel() {
+  const panel = $('usersPanel');
+  panel.innerHTML = '';
+
+  const lbl = document.createElement('div');
+  lbl.className = 'section-label';
+  lbl.textContent = `${Object.keys(onlineUsers).length} user(s) online`;
+  panel.appendChild(lbl);
+
+  if (Object.keys(onlineUsers).length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'color:var(--text-dim);font-family:var(--font-mono);font-size:12px;padding:16px 0';
+    empty.textContent = 'no users online';
+    panel.appendChild(empty);
+  }
+
+  for (const [uid, user] of Object.entries(onlineUsers)) {
+    const row = document.createElement('div');
+    row.className = 'user-row';
+    const rc = ROLES[user.role]?.color || '#aaa';
+    const rl = ROLES[user.role]?.label || user.role;
+    const isMe = uid === myId;
+    row.innerHTML = `
+      <span class="ur-name">${user.name}${isMe ? ' <span style="color:var(--text-dim);font-size:10px">(you)</span>' : ''}</span>
+      <span class="ur-role" style="color:${rc}">${rl}</span>
+      ${isMe ? '' : `<button class="btn-kick" data-uid="${uid}" data-name="${user.name}">REMOVE</button>`}
+    `;
+    panel.appendChild(row);
+  }
+
+  panel.querySelectorAll('.btn-kick').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const uid = btn.dataset.uid;
+      const name = btn.dataset.name;
+      await remove(ref(db, `${CHANNEL}/users/${uid}`));
+      await remove(ref(db, `${CHANNEL}/talking/${uid}`));
+      await remove(ref(db, `${CHANNEL}/signals/${uid}`));
+      closePeer(uid);
+      showToast(`removed ${name}`);
+      openUsersPanel();
+    });
+  });
+
+  $('usersOverlay').classList.add('open');
+}
+
+// ── ROLES PANEL ──────────────────────────────────────────
+$('rolesBtn').addEventListener('click', openRolesPanel);
+$('rolesClose').addEventListener('click', () => $('rolesOverlay').classList.remove('open'));
+$('rolesOverlay').addEventListener('click', e => { if (e.target === $('rolesOverlay')) $('rolesOverlay').classList.remove('open'); });
+
+function openRolesPanel() {
+  const panel = $('rolesPanel');
+  panel.innerHTML = '';
+
+  const lbl = document.createElement('div');
+  lbl.className = 'section-label';
+  lbl.textContent = 'who can hear who — tap your role for details';
+  panel.appendChild(lbl);
+
+  const grid = document.createElement('div');
+  grid.className = 'roles-grid';
+
+  for (const [key, role] of Object.entries(ROLES)) {
+    const isMe = key === myRole;
+    const hears = role.canHear.map(r => ROLES[r]?.label || r).join(', ');
+
+    // Who can hear THIS role (reverse lookup)
+    const heardBy = Object.entries(ROLES)
+      .filter(([,r]) => r.canHear.includes(key))
+      .map(([,r]) => r.label).join(', ');
+
+    const card = document.createElement('div');
+    card.className = 'role-card';
+    if (isMe) card.style.borderColor = role.color;
+    card.innerHTML = `
+      <div class="role-card-header">
+        <div class="role-dot" style="background:${role.color};box-shadow:0 0 8px ${role.color}88"></div>
+        <div class="role-name" style="color:${role.color}">${role.label}</div>
+        ${isMe ? '<div class="role-you">← YOU</div>' : ''}
+      </div>
+      <div class="role-info">
+        <strong>HEARS:</strong> ${hears}<br>
+        <strong>HEARD BY:</strong> ${heardBy}
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+
+  panel.appendChild(grid);
+  $('rolesOverlay').classList.add('open');
+}
+
+// ── TOAST ────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
