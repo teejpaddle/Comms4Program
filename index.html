@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>WALKIE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+
+  :root {
+    --bg: #0d0f0e;
+    --surface: #141714;
+    --border: #2a2f2a;
+    --green: #39ff84;
+    --green-dim: #1a4a2e;
+    --green-glow: rgba(57, 255, 132, 0.15);
+    --red: #ff4444;
+    --amber: #ffb347;
+    --text: #c8d5c8;
+    --text-dim: #5a6b5a;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-ui: 'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; flex-direction: column; height: 100%; padding: 0; }
+  .screen.active { display: flex; }
+
+  /* ── SETUP SCREEN ── */
+  #setup {
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 40px 32px;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(57,255,132,0.06) 0%, transparent 70%),
+      var(--bg);
+  }
+
+  .logo {
+    font-family: var(--font-ui);
+    font-weight: 900;
+    font-size: 72px;
+    letter-spacing: 16px;
+    color: var(--green);
+    text-shadow: 0 0 40px rgba(57,255,132,0.5), 0 0 80px rgba(57,255,132,0.2);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .logo-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 6px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 56px;
+  }
+
+  .field-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    align-self: flex-start;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .field-input {
+    width: 100%;
+    max-width: 320px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    font-family: var(--font-ui);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    margin-bottom: 40px;
+  }
+
+  .field-input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px var(--green-glow), inset 0 0 20px rgba(57,255,132,0.03);
+  }
+
+  .field-input::placeholder { color: var(--text-dim); font-weight: 300; }
+
+  .btn-join {
+    width: 100%;
+    max-width: 320px;
+    padding: 18px;
+    background: var(--green);
+    border: none;
+    border-radius: 4px;
+    font-family: var(--font-ui);
+    font-weight: 900;
+    font-size: 18px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: #0a0f0a;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+    box-shadow: 0 0 30px rgba(57,255,132,0.3);
+  }
+
+  .btn-join:active { transform: scale(0.97); box-shadow: 0 0 10px rgba(57,255,132,0.2); }
+
+  /* ── MAIN SCREEN ── */
+  #main { background: var(--bg); }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .header-logo {
+    font-family: var(--font-ui);
+    font-weight: 900;
+    font-size: 24px;
+    letter-spacing: 8px;
+    color: var(--green);
+    text-shadow: 0 0 20px rgba(57,255,132,0.4);
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+
+  .status-dot.online {
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse-dot 2s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* User badge */
+  .user-badge {
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .user-badge span { color: var(--green); }
+
+  /* Activity feed */
+  .feed {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .feed::-webkit-scrollbar { width: 3px; }
+  .feed::-webkit-scrollbar-track { background: transparent; }
+  .feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Feed entries */
+  .entry {
+    padding: 10px 20px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+    border-left: 2px solid transparent;
+    transition: background 0.2s;
+  }
+
+  .entry.system {
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 6px 20px;
+  }
+
+  .entry.talking {
+    border-left-color: var(--green);
+    background: var(--green-glow);
+    animation: entry-flash 0.3s ease;
+  }
+
+  .entry.done {
+    border-left-color: var(--border);
+    color: var(--text-dim);
+  }
+
+  @keyframes entry-flash {
+    0% { background: rgba(57,255,132,0.25); }
+    100% { background: var(--green-glow); }
+  }
+
+  .entry-name {
+    color: var(--green);
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .entry-name.other { color: var(--amber); }
+
+  .entry-status {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  .entry-time {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-left: 8px;
+  }
+
+  /* Waveform vis */
+  .waveform {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 10px;
+    vertical-align: middle;
+  }
+
+  .waveform-bar {
+    width: 2px;
+    background: var(--green);
+    border-radius: 1px;
+    animation: wave 0.6s ease-in-out infinite alternate;
+  }
+
+  .waveform-bar:nth-child(1) { height: 4px; animation-delay: 0s; }
+  .waveform-bar:nth-child(2) { height: 8px; animation-delay: 0.1s; }
+  .waveform-bar:nth-child(3) { height: 12px; animation-delay: 0.2s; }
+  .waveform-bar:nth-child(4) { height: 8px; animation-delay: 0.3s; }
+  .waveform-bar:nth-child(5) { height: 4px; animation-delay: 0.4s; }
+
+  @keyframes wave {
+    from { transform: scaleY(0.4); opacity: 0.6; }
+    to { transform: scaleY(1); opacity: 1; }
+  }
+
+  /* Online users bar */
+  .users-bar {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .users-bar .user-chip {
+    display: inline-block;
+    margin-right: 12px;
+    color: var(--text);
+  }
+
+  .users-bar .user-chip::before {
+    content: '● ';
+    color: var(--green);
+    font-size: 8px;
+  }
+
+  /* PTT Button area */
+  .ptt-area {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px 40px;
+    gap: 16px;
+    background:
+      linear-gradient(to top, rgba(57,255,132,0.04) 0%, transparent 100%),
+      var(--bg);
+  }
+
+  .channel-info {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  /* THE BUTTON */
+  .ptt-btn {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 2px solid var(--green);
+    background: var(--surface);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    position: relative;
+    transition: all 0.15s ease;
+    box-shadow:
+      0 0 0 8px rgba(57,255,132,0.05),
+      0 0 40px rgba(57,255,132,0.1),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .ptt-btn::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 1px solid rgba(57,255,132,0.15);
+  }
+
+  .ptt-btn::after {
+    content: '';
+    position: absolute;
+    inset: -16px;
+    border-radius: 50%;
+    border: 1px solid rgba(57,255,132,0.06);
+  }
+
+  .ptt-btn.pressing {
+    background: var(--green-dim);
+    border-color: var(--green);
+    box-shadow:
+      0 0 0 8px rgba(57,255,132,0.1),
+      0 0 60px rgba(57,255,132,0.4),
+      inset 0 0 30px rgba(57,255,132,0.1);
+    transform: scale(0.96);
+  }
+
+  .ptt-btn.blocked {
+    border-color: var(--red);
+    box-shadow: 0 0 20px rgba(255,68,68,0.2);
+    cursor: not-allowed;
+  }
+
+  .ptt-icon {
+    font-size: 36px;
+    line-height: 1;
+  }
+
+  .ptt-label {
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--green);
+  }
+
+  .ptt-btn.pressing .ptt-label { color: var(--green); }
+  .ptt-btn.blocked .ptt-label { color: var(--red); }
+
+  .ptt-hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  /* Notification toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+    white-space: nowrap;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Permission denied state */
+  .perm-msg {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--red);
+    padding: 0 40px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── SETUP SCREEN ── -->
+<div class="screen active" id="setup">
+  <div class="logo">WALKIE</div>
+  <div class="logo-sub">push-to-talk · all channels</div>
+
+  <div class="field-label">your callsign</div>
+  <input class="field-input" id="nameInput" type="text" maxlength="16"
+    placeholder="enter name" autocomplete="off" autocorrect="off" spellcheck="false">
+
+  <button class="btn-join" id="joinBtn">JOIN CHANNEL</button>
+</div>
+
+<!-- ── MAIN SCREEN ── -->
+<div class="screen" id="main">
+  <div class="header">
+    <div class="header-logo">WALKIE</div>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">connecting</span>
+    </div>
+  </div>
+
+  <div class="user-badge">
+    CALLSIGN: <span id="displayName">—</span>
+  </div>
+
+  <div class="feed" id="feed"></div>
+
+  <div class="users-bar" id="usersBar">NO USERS ONLINE</div>
+
+  <div class="ptt-area">
+    <div class="channel-info">CH 1 · PUBLIC</div>
+
+    <button class="ptt-btn" id="pttBtn">
+      <div class="ptt-icon">🎙</div>
+      <div class="ptt-label" id="pttLabel">PRESS</div>
+    </button>
+
+    <div class="ptt-hint" id="pttHint">hold to talk</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getDatabase, ref, set, push, onValue, onDisconnect,
+  serverTimestamp, off, get, remove
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ════════════════════════════════════════════════
+//  🔥 FIREBASE CONFIG
+//  Replace with your own Firebase project config!
+//  Create one free at: https://console.firebase.google.com
+// ════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyAdMvf8MgSB7QvAhOWKtqfgO38E1iSywec",
+  authDomain: "walkietalkieapp-393bb.firebaseapp.com",
+  databaseURL: "https://walkietalkieapp-393bb-default-rtdb.firebaseio.com",
+  projectId: "walkietalkieapp-393bb",
+  storageBucket: "walkietalkieapp-393bb.firebasestorage.app",
+  messagingSenderId: "221462525934",
+  appId: "1:221462525934:web:730cc3d678b1ded92cc0ff",
+  measurementId: "G-SWWHGHZGV1"
+};
+
+// ════════════════════════════════════════════════
+//  APP STATE
+// ════════════════════════════════════════════════
+let app, db;
+let myName = '';
+let myId = '';
+let isTalking = false;
+let isOtherTalking = false;
+let currentTalker = null;
+let mediaStream = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let peerConnections = {}; // id → RTCPeerConnection
+let onlineUsers = {};
+let talkingRef = null;
+let myPresenceRef = null;
+
+const CHANNEL = 'ch1';
+
+// ════════════════════════════════════════════════
+//  DOM
+// ════════════════════════════════════════════════
+const setupScreen = document.getElementById('setup');
+const mainScreen  = document.getElementById('main');
+const nameInput   = document.getElementById('nameInput');
+const joinBtn     = document.getElementById('joinBtn');
+const feed        = document.getElementById('feed');
+const statusDot   = document.getElementById('statusDot');
+const statusText  = document.getElementById('statusText');
+const displayName = document.getElementById('displayName');
+const usersBar    = document.getElementById('usersBar');
+const pttBtn      = document.getElementById('pttBtn');
+const pttLabel    = document.getElementById('pttLabel');
+const pttHint     = document.getElementById('pttHint');
+const toast       = document.getElementById('toast');
+
+// ════════════════════════════════════════════════
+//  SETUP
+// ════════════════════════════════════════════════
+// Restore name from localStorage
+const saved = localStorage.getItem('walkie_name');
+if (saved) nameInput.value = saved;
+
+joinBtn.addEventListener('click', join);
+nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') join(); });
+
+function join() {
+  const n = nameInput.value.trim().toUpperCase();
+  if (!n) { shake(nameInput); return; }
+  myName = n;
+  localStorage.setItem('walkie_name', n);
+  myId = 'user_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now();
+
+  setupScreen.classList.remove('active');
+  mainScreen.classList.add('active');
+  displayName.textContent = myName;
+
+  initFirebase();
+}
+
+function shake(el) {
+  el.style.animation = 'none';
+  el.offsetHeight; // reflow
+  el.style.animation = 'shake 0.3s ease';
+}
+
+// ════════════════════════════════════════════════
+//  FIREBASE INIT
+// ════════════════════════════════════════════════
+function initFirebase() {
+  try {
+    app = initializeApp(firebaseConfig);
+    db  = getDatabase(app);
+    setupPresence();
+    listenToChannel();
+    listenToTalkState();
+    setStatus('online', 'online');
+    addSystemEntry('connected to channel 1');
+  } catch(e) {
+    setStatus('error', 'no config');
+    addSystemEntry('⚠ firebase not configured — see index.html comments');
+    enableDemoMode();
+  }
+}
+
+// ════════════════════════════════════════════════
+//  PRESENCE
+// ════════════════════════════════════════════════
+function setupPresence() {
+  myPresenceRef = ref(db, `${CHANNEL}/users/${myId}`);
+  set(myPresenceRef, { name: myName, ts: serverTimestamp() });
+  onDisconnect(myPresenceRef).remove();
+
+  const usersRef = ref(db, `${CHANNEL}/users`);
+  onValue(usersRef, snap => {
+    onlineUsers = snap.val() || {};
+    renderUsers();
+  });
+}
+
+function renderUsers() {
+  const names = Object.values(onlineUsers).map(u => u.name);
+  if (names.length === 0) {
+    usersBar.textContent = 'NO USERS ONLINE';
+    return;
+  }
+  usersBar.innerHTML = names.map(n =>
+    `<span class="user-chip">${n}</span>`
+  ).join('');
+}
+
+// ════════════════════════════════════════════════
+//  TALK STATE (who is currently transmitting)
+// ════════════════════════════════════════════════
+function listenToTalkState() {
+  talkingRef = ref(db, `${CHANNEL}/talking`);
+  onValue(talkingRef, snap => {
+    const data = snap.val();
+    if (!data) {
+      // Channel free
+      if (isOtherTalking) {
+        endIncomingTalk();
+      }
+      isOtherTalking = false;
+      currentTalker = null;
+      if (!isTalking) {
+        pttBtn.classList.remove('blocked');
+        pttLabel.textContent = 'PRESS';
+        pttHint.textContent = 'hold to talk';
+      }
+      return;
+    }
+
+    if (data.id === myId) return; // my own state
+
+    // Someone else is talking
+    isOtherTalking = true;
+    currentTalker = data;
+    pttBtn.classList.add('blocked');
+    pttLabel.textContent = 'BUSY';
+    pttHint.textContent = data.name + ' IS TALKING';
+    showIncomingTalk(data.name);
+  });
+}
+
+// ════════════════════════════════════════════════
+//  FEED ENTRIES
+// ════════════════════════════════════════════════
+let activeTalkEntry = null;
+
+function addSystemEntry(msg) {
+  const el = document.createElement('div');
+  el.className = 'entry system';
+  el.textContent = '» ' + msg;
+  feed.appendChild(el);
+  scrollFeed();
+}
+
+function showIncomingTalk(name) {
+  if (activeTalkEntry && activeTalkEntry.dataset.talkerId === name) return;
+  endActiveTalkEntry();
+
+  const el = document.createElement('div');
+  el.className = 'entry talking';
+  el.dataset.talkerId = name;
+  el.innerHTML = `
+    <span class="entry-name other">${name}</span>
+    <span class="entry-status">TRANSMITTING</span>
+    <span class="waveform">
+      <span class="waveform-bar"></span>
+      <span class="waveform-bar"></span>
+      <span class="waveform-bar"></span>
+      <span class="waveform-bar"></span>
+      <span class="waveform-bar"></span>
+    </span>
+  `;
+  feed.appendChild(el);
+  activeTalkEntry = el;
+  scrollFeed();
+}
+
+function showMyTalk() {
+  endActiveTalkEntry();
+  const el = document.createElement('div');
+  el.className = 'entry talking';
+  el.dataset.talkerId = myId;
+  el.innerHTML = `
+    <span class="entry-name">${myName}</span>
+    <span class="entry-status">TRANSMITTING</span>
+    <span class="waveform">
+      <span class="waveform-bar"></span>
+      <span class="waveform-bar"></span>
+      <span class="waveform-bar"></span>
+      <span class="waveform-bar"></span>
+      <span class="waveform-bar"></span>
+    </span>
+  `;
+  feed.appendChild(el);
+  activeTalkEntry = el;
+  scrollFeed();
+}
+
+function endActiveTalkEntry() {
+  if (!activeTalkEntry) return;
+  activeTalkEntry.classList.remove('talking');
+  activeTalkEntry.classList.add('done');
+  const wave = activeTalkEntry.querySelector('.waveform');
+  if (wave) wave.remove();
+  const status = activeTalkEntry.querySelector('.entry-status');
+  if (status) {
+    const now = new Date();
+    status.textContent = `over`;
+    const time = document.createElement('span');
+    time.className = 'entry-time';
+    time.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    activeTalkEntry.appendChild(time);
+  }
+  activeTalkEntry = null;
+}
+
+function endIncomingTalk() {
+  endActiveTalkEntry();
+}
+
+function scrollFeed() {
+  requestAnimationFrame(() => { feed.scrollTop = feed.scrollHeight; });
+}
+
+// ════════════════════════════════════════════════
+//  PUSH-TO-TALK BUTTON
+// ════════════════════════════════════════════════
+pttBtn.addEventListener('pointerdown', startTalk);
+pttBtn.addEventListener('pointerup', stopTalk);
+pttBtn.addEventListener('pointerleave', stopTalk);
+pttBtn.addEventListener('pointercancel', stopTalk);
+
+// Prevent context menu on long press
+pttBtn.addEventListener('contextmenu', e => e.preventDefault());
+
+async function startTalk(e) {
+  e.preventDefault();
+  if (isOtherTalking) {
+    showToast('channel busy — wait for over');
+    return;
+  }
+  if (isTalking) return;
+
+  // Request mic if needed
+  if (!mediaStream) {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch(err) {
+      showToast('microphone access denied');
+      pttHint.innerHTML = '<span class="perm-msg">enable mic in browser settings</span>';
+      return;
+    }
+  }
+
+  isTalking = true;
+  pttBtn.classList.add('pressing');
+  pttLabel.textContent = 'TX';
+  pttHint.textContent = 'transmitting...';
+  showMyTalk();
+
+  // Claim channel in Firebase
+  if (db) {
+    set(ref(db, `${CHANNEL}/talking`), { id: myId, name: myName, ts: serverTimestamp() });
+  }
+
+  // Start recording for playback to others via WebRTC
+  startBroadcasting();
+}
+
+function stopTalk(e) {
+  if (!isTalking) return;
+  isTalking = false;
+
+  pttBtn.classList.remove('pressing');
+  pttLabel.textContent = 'PRESS';
+  pttHint.textContent = 'hold to talk';
+  endActiveTalkEntry();
+
+  // Release channel
+  if (db) {
+    remove(ref(db, `${CHANNEL}/talking`));
+  }
+
+  stopBroadcasting();
+}
+
+// ════════════════════════════════════════════════
+//  WEBRTC BROADCAST (mesh)
+// ════════════════════════════════════════════════
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
+];
+
+function listenToChannel() {
+  if (!db) return;
+
+  // Listen for new peers
+  const peersRef = ref(db, `${CHANNEL}/signals`);
+  onValue(peersRef, async snap => {
+    const signals = snap.val() || {};
+    for (const [sigId, sig] of Object.entries(signals)) {
+      if (sig.to !== myId) continue;
+      if (sig.from === myId) continue;
+      await handleSignal(sig.from, sig);
+    }
+  });
+}
+
+async function startBroadcasting() {
+  if (!db || !mediaStream) return;
+  // For each online user, create offer
+  for (const uid of Object.keys(onlineUsers)) {
+    if (uid === myId) continue;
+    await createOffer(uid);
+  }
+}
+
+function stopBroadcasting() {
+  for (const pc of Object.values(peerConnections)) {
+    try { pc.close(); } catch(e) {}
+  }
+  peerConnections = {};
+  // Clean my signals
+  if (db) {
+    remove(ref(db, `${CHANNEL}/signals/${myId}`));
+  }
+}
+
+async function createOffer(targetId) {
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  peerConnections[targetId] = pc;
+
+  mediaStream.getTracks().forEach(t => pc.addTrack(t, mediaStream));
+
+  pc.onicecandidate = async e => {
+    if (e.candidate) {
+      await push(ref(db, `${CHANNEL}/signals`), {
+        type: 'candidate', from: myId, to: targetId,
+        candidate: e.candidate.toJSON()
+      });
+    }
+  };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  await push(ref(db, `${CHANNEL}/signals`), {
+    type: 'offer', from: myId, to: targetId,
+    sdp: offer.sdp
+  });
+}
+
+async function handleSignal(fromId, sig) {
+  if (sig.type === 'offer') {
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    peerConnections[fromId] = pc;
+
+    pc.ontrack = e => {
+      const audio = new Audio();
+      audio.srcObject = e.streams[0];
+      audio.play().catch(() => {});
+    };
+
+    pc.onicecandidate = async e => {
+      if (e.candidate) {
+        await push(ref(db, `${CHANNEL}/signals`), {
+          type: 'candidate', from: myId, to: fromId,
+          candidate: e.candidate.toJSON()
+        });
+      }
+    };
+
+    await pc.setRemoteDescription({ type: 'offer', sdp: sig.sdp });
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    await push(ref(db, `${CHANNEL}/signals`), {
+      type: 'answer', from: myId, to: fromId,
+      sdp: answer.sdp
+    });
+
+  } else if (sig.type === 'answer') {
+    const pc = peerConnections[fromId];
+    if (pc && pc.signalingState === 'have-local-offer') {
+      await pc.setRemoteDescription({ type: 'answer', sdp: sig.sdp });
+    }
+  } else if (sig.type === 'candidate') {
+    const pc = peerConnections[fromId];
+    if (pc) {
+      try { await pc.addIceCandidate(sig.candidate); } catch(e) {}
+    }
+  }
+}
+
+// ════════════════════════════════════════════════
+//  DEMO MODE (no Firebase config)
+// ════════════════════════════════════════════════
+function enableDemoMode() {
+  // Still allow mic test locally
+  pttBtn.classList.remove('blocked');
+  pttHint.textContent = 'demo mode — configure firebase to go live';
+  addSystemEntry('running in demo mode — audio input only');
+
+  // Override talk to just show local feedback
+  pttBtn.removeEventListener('pointerdown', startTalk);
+  pttBtn.addEventListener('pointerdown', async (e) => {
+    e.preventDefault();
+    if (!mediaStream) {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch(e) {
+        showToast('mic denied');
+        return;
+      }
+    }
+    isTalking = true;
+    pttBtn.classList.add('pressing');
+    pttLabel.textContent = 'TX';
+    pttHint.textContent = 'demo — talking (not broadcast)';
+    showMyTalk();
+  });
+  pttBtn.removeEventListener('pointerup', stopTalk);
+  pttBtn.addEventListener('pointerup', () => {
+    if (!isTalking) return;
+    isTalking = false;
+    pttBtn.classList.remove('pressing');
+    pttLabel.textContent = 'PRESS';
+    pttHint.textContent = 'demo mode — configure firebase to go live';
+    endActiveTalkEntry();
+  });
+}
+
+// ════════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════════
+function setStatus(state, label) {
+  statusDot.className = 'status-dot ' + (state === 'online' ? 'online' : '');
+  statusText.textContent = label;
+}
+
+let toastTimer;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// CSS for shake animation (injected)
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%,60% { transform: translateX(-8px); }
+    40%,80% { transform: translateX(8px); }
+  }
+`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>
